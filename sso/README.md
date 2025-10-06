@@ -36,9 +36,9 @@ From the project root:
 
 Then visit `http://localhost:8080/` and click the login link (or open `http://localhost:8080/oauth2/authorization/auth0`). After login you'll be redirected to the app. Visit `/profile` to see ID token claims.
 
-![alt text](images\image-1.png)
+![ ảnh 1](images\image-1.png)
 
-![alt text](images\image.png)
+![ảnh 2](images\image.png)
 
 
 ## Notes and next steps
