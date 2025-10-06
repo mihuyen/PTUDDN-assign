@@ -26,6 +26,8 @@ spring.security.oauth2.client.provider.auth0.issuer-uri=https://YOUR_AUTH0_DOMAI
 
 Example issuer URI: `https://dev-xxxxx.us.auth0.com/`
 
+![alt text](images\1.png)
+
 ## Run
 
 From the project root:
