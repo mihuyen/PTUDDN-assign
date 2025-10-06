@@ -26,7 +26,8 @@ spring.security.oauth2.client.provider.auth0.issuer-uri=https://YOUR_AUTH0_DOMAI
 
 Example issuer URI: `https://dev-xxxxx.us.auth0.com/`
 
-![alt text](images\1.png)
+<img width="1781" height="924" alt="image" src="https://github.com/user-attachments/assets/b4ab909b-f8b2-4fa9-96f6-7dc64b3f8e33" />
+
 
 ## Run
 
@@ -38,9 +39,11 @@ From the project root:
 
 Then visit `http://localhost:8080/` and click the login link (or open `http://localhost:8080/oauth2/authorization/auth0`). After login you'll be redirected to the app. Visit `/profile` to see ID token claims.
 
-![ ảnh 1](images\image-1.png)
+<img width="1783" height="921" alt="Screenshot 2025-10-06 113037" src="https://github.com/user-attachments/assets/651bbdea-dddb-4e44-82cf-27407d61f9da" />
 
-![ảnh 2](images\image.png)
+
+<img width="1803" height="936" alt="Screenshot 2025-10-06 113201" src="https://github.com/user-attachments/assets/b970cc53-87b3-4190-a480-4b549cf212cf" />
+
 
 
 ## Notes and next steps
