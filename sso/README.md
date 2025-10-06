@@ -36,8 +36,15 @@ From the project root:
 
 Then visit `http://localhost:8080/` and click the login link (or open `http://localhost:8080/oauth2/authorization/auth0`). After login you'll be redirected to the app. Visit `/profile` to see ID token claims.
 
+![alt text](images\image-1.png)
+
+![alt text](images\image.png)
+
+
 ## Notes and next steps
 
 - This example stores access and refresh tokens in memory. To persist refresh tokens across restarts, implement a persistent `OAuth2AuthorizedClientService` (e.g., JDBC-backed).
 - For production, secure secrets (client secret) via environment variables or a secrets manager.
 - You can also enable PKCE and additional security measures if needed.
+
+
