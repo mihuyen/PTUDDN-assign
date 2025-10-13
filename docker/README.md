@@ -20,12 +20,13 @@ Trước khi chạy, đảm bảo máy bạn đã cài:
 
 ## Hướng dẫn chạy
 
-### 1️⃣ Build ứng dụng Spring Boot
+### Build ứng dụng Spring Boot
 Mở terminal (PowerShell hoặc VS Code Terminal) tại thư mục chứa `pom.xml`:
 ```bash
     mvn -q -DskipTests package
     docker compose up -d --build
     docker compose ps
+```
 
 Kết quả mong đợi:
 
