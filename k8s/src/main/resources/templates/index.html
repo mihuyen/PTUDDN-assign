@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K8s Demo Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .info-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .info-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .info-value {
+            color: #667eea;
+            font-family: monospace;
+        }
+
+        .api-section {
+            margin-top: 30px;
+        }
+
+        .api-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .api-list {
+            list-style: none;
+        }
+
+        .api-item {
+            background: #f0f4ff;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+
+        .api-item:hover {
+            transform: translateX(5px);
+            background: #e0e8ff;
+        }
+
+        .api-method {
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .api-endpoint {
+            font-family: monospace;
+            color: #333;
+            flex-grow: 1;
+            margin: 0 15px;
+        }
+
+        .api-desc {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .feature-card h4 {
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .feature-card p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .api-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .api-endpoint {
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 K8s Demo Application</h1>
+        <p class="subtitle">Kubernetes Deployment with Monitoring & Autoscaling</p>
+
+        <div class="info-card">
+            <h3>📊 Application Information</h3>
+            <div class="info-item">
+                <span class="info-label">Application Name:</span>
+                <span class="info-value" th:text="${appName}">K8s Demo Application</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Version:</span>
+                <span class="info-value" th:text="${version}">1.0.0</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Hostname (Pod):</span>
+                <span class="info-value" th:text="${hostname}">localhost</span>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <h4>☸️ Kubernetes</h4>
+                <p>Triển khai trên K8s với HPA</p>
+            </div>
+            <div class="feature-card">
+                <h4>📈 Monitoring</h4>
+                <p>Prometheus & Grafana</p>
+            </div>
+            <div class="feature-card">
+                <h4>⚡ Autoscaling</h4>
+                <p>Tự động scale theo load</p>
+            </div>
+            <div class="feature-card">
+                <h4>🧪 Load Testing</h4>
+                <p>JMeter test scripts</p>
+            </div>
+        </div>
+
+        <div class="api-section">
+            <h3>🔗 Available API Endpoints</h3>
+            <ul class="api-list">
+                <li class="api-item">
+                    <span class="api-method">GET</span>
+                    <span class="api-endpoint">/api/health</span>
+                    <span class="api-desc">Health check</span>
+                </li>
+                <li class="api-item">
+                    <span class="api-method">GET</span>
+                    <span class="api-endpoint">/api/info</span>
+                    <span class="api-desc">App info</span>
+                </li>
+                <li class="api-item">
+                    <span class="api-method">GET</span>
+                    <span class="api-endpoint">/api/ping</span>
+                    <span class="api-desc">Simple ping</span>
+                </li>
+                <li class="api-item">
+                    <span class="api-method">GET</span>
+                    <span class="api-endpoint">/api/cpu-load?duration=100&threads=1</span>
+                    <span class="api-desc">Generate CPU load</span>
+                </li>
+                <li class="api-item">
+                    <span class="api-method">GET</span>
+                    <span class="api-endpoint">/api/memory-load?sizeMB=10</span>
+                    <span class="api-desc">Generate memory load</span>
+                </li>
+                <li class="api-item">
+                    <span class="api-method">GET</span>
+                    <span class="api-endpoint">/actuator/health</span>
+                    <span class="api-desc">Actuator health</span>
+                </li>
+                <li class="api-item">
+                    <span class="api-method">GET</span>
+                    <span class="api-endpoint">/actuator/prometheus</span>
+                    <span class="api-desc">Prometheus metrics</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

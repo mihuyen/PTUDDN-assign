@@ -1,0 +1,60 @@
+# Horizontal Pod Autoscaler (HPA)
+# Tự động scale số lượng pods dựa trên CPU và Memory usage
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: k8s-demo-hpa
+  namespace: k8s-demo
+  labels:
+    app: k8s-demo-app
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: k8s-demo-app
+  
+  # Số lượng pods tối thiểu và tối đa
+  minReplicas: 2
+  maxReplicas: 10
+  
+  # Metrics để trigger autoscaling
+  metrics:
+  # CPU utilization
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50  # Scale khi CPU > 50%
+  
+  # Memory utilization
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70  # Scale khi Memory > 70%
+  
+  # Behavior để control scaling speed
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Chờ 5 phút trước khi scale down
+      policies:
+      - type: Percent
+        value: 50  # Scale down tối đa 50% số pods hiện tại
+        periodSeconds: 60
+      - type: Pods
+        value: 1  # Hoặc 1 pod
+        periodSeconds: 60
+      selectPolicy: Min
+    
+    scaleUp:
+      stabilizationWindowSeconds: 0  # Scale up ngay lập tức
+      policies:
+      - type: Percent
+        value: 100  # Double số pods
+        periodSeconds: 30
+      - type: Pods
+        value: 2  # Hoặc thêm 2 pods
+        periodSeconds: 30
+      selectPolicy: Max

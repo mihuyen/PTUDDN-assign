@@ -27,6 +27,7 @@ Mở terminal (PowerShell hoặc VS Code Terminal) tại thư mục chứa `pom.
     docker compose up -d --build
     docker compose ps
 
+
 Kết quả mong đợi:
 
 

@@ -1,0 +1,70 @@
+# Deployment cho ứng dụng K8s Demo
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-demo-app
+  namespace: k8s-demo
+  labels:
+    app: k8s-demo-app
+    version: v1.0.0
+spec:
+  replicas: 2  # Số lượng pod ban đầu
+  selector:
+    matchLabels:
+      app: k8s-demo-app
+  template:
+    metadata:
+      labels:
+        app: k8s-demo-app
+        version: v1.0.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+      - name: k8s-demo-app
+        image: k8s-demo-app:1.0.0  # Thay bằng image của bạn
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        
+        # Resource limits và requests (quan trọng cho HPA)
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"  # 0.25 CPU
+          limits:
+            memory: "512Mi"
+            cpu: "500m"  # 0.5 CPU
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # Environment variables
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "production"
+        - name: JAVA_OPTS
+          value: "-Xmx384m -Xms256m"
+      
+      # Restart policy
+      restartPolicy: Always

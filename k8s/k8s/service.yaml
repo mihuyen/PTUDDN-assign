@@ -1,0 +1,23 @@
+# Service để expose ứng dụng
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-demo-service
+  namespace: k8s-demo
+  labels:
+    app: k8s-demo-app
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/actuator/prometheus"
+spec:
+  type: LoadBalancer  # Hoặc NodePort cho local testing
+  selector:
+    app: k8s-demo-app
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+    nodePort: 30080  # Chỉ dùng khi type là NodePort
+  sessionAffinity: None
