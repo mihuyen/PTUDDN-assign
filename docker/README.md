@@ -1,6 +1,6 @@
 # Spring Boot + MySQL (Docker Compose Demo)
 
-## 📘 Giới thiệu
+## Giới thiệu
 
 Dự án này minh họa cách **đóng gói và chạy một ứng dụng Spring Boot** với **MySQL** bằng **Docker Compose**.  
 Ứng dụng cung cấp một REST API đơn giản để quản lý `Product` (sản phẩm), với các thao tác thêm, xem và lấy danh sách.
@@ -20,12 +20,13 @@ Trước khi chạy, đảm bảo máy bạn đã cài:
 
 ## Hướng dẫn chạy
 
-### 1️⃣ Build ứng dụng Spring Boot
+### Build ứng dụng Spring Boot
 Mở terminal (PowerShell hoặc VS Code Terminal) tại thư mục chứa `pom.xml`:
 ```bash
     mvn -q -DskipTests package
     docker compose up -d --build
     docker compose ps
+```
 
 
 Kết quả mong đợi:
