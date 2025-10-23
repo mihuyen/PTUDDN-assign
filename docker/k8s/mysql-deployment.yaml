@@ -14,19 +14,48 @@ spec:
       labels:
         app: mysql
     spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      initContainers:
+      - name: init-mysql
+        image: busybox:1.35
+        command: ['sh', '-c', 'echo "Initializing MySQL..." && sleep 5']
       containers:
       - name: mysql
-        image: mysql:8.0
+        image: mysql/mysql-server:8.0
         env:
         - name: MYSQL_ROOT_PASSWORD
           value: "root"
         - name: MYSQL_DATABASE
           value: "productdb"
+        - name: MYSQL_USER
+          value: "app"
+        - name: MYSQL_PASSWORD
+          value: "root"
+        - name: MYSQL_ROOT_HOST
+          value: "%"
         ports:
         - containerPort: 3306
         volumeMounts:
         - name: mysql-storage
           mountPath: /var/lib/mysql
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi" 
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command: ["mysqladmin", "ping", "-u", "root", "-proot"]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command: ["mysql", "-u", "root", "-proot", "-e", "SELECT 1"]
+          initialDelaySeconds: 30
+          periodSeconds: 5
       volumes:
       - name: mysql-storage
         persistentVolumeClaim:

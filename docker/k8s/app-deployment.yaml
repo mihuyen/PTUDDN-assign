@@ -14,6 +14,8 @@ spec:
       labels:
         app: springboot-app
     spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
       containers:
       - name: springboot-app
         image: docker-app:latest
