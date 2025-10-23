@@ -5,6 +5,8 @@
 Dự án này minh họa cách **đóng gói và chạy một ứng dụng Spring Boot** với **MySQL** bằng **Docker Compose**.  
 Ứng dụng cung cấp một REST API đơn giản để quản lý `Product` (sản phẩm), với các thao tác thêm, xem và lấy danh sách.
 
+![alt text](image.png)
+
 
 ---
 
