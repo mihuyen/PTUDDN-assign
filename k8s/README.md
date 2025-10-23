@@ -1,5 +1,7 @@
 # K8s Demo Application - Deployment & Autoscaling
 
+<img width="1476" height="944" alt="image" src="https://github.com/user-attachments/assets/b9841ac1-d5ee-487c-b08d-b6d7cbdd7607" />
+
 ## 📋 Mô tả
 
 Dự án demo triển khai ứng dụng Spring Boot lên Kubernetes với đầy đủ tính năng:
