@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: docker-app-production
+  namespace: argocd
+  labels:
+    app: docker-app
+    environment: production
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  
+  # Source configuration
+  source:
+    repoURL: https://github.com/mihuyen/PTUDDN-assign.git
+    targetRevision: main  # Track main branch for production
+    path: docker/k8s
+    
+  # Destination configuration
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: docker-production
+    
+  # Sync policy - More conservative for production
+  syncPolicy:
+    automated:
+      prune: false     # Manual pruning for production safety
+      selfHeal: false  # Manual sync for production
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+        
+  # Health and sync configuration
+  revisionHistoryLimit: 20
+  
+  # Ignore differences for certain fields
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: ""
+      kind: Service
+      jsonPointers:
+        - /spec/clusterIP

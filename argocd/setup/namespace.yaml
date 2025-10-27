@@ -1,0 +1,17 @@
+# ArgoCD Installation Script
+# This script installs ArgoCD in your Kubernetes cluster
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    name: argocd
+---
+# ArgoCD will be installed using the official manifests
+# Run this command to install ArgoCD:
+# kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# After installation, you can access ArgoCD UI by:
+# 1. Port forward: kubectl port-forward svc/argocd-server -n argocd 8080:443
+# 2. Get initial admin password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d

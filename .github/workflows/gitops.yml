@@ -1,0 +1,146 @@
+name: ArgoCD GitOps Deployment
+
+on:
+  push:
+    branches: [ main, develop ]
+  workflow_run:
+    workflows: ["Multi-Module CI/CD Pipeline"]
+    types:
+      - completed
+    branches: [ main, develop ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  update-manifests:
+    name: Update K8s Manifests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'push' }}
+    
+    permissions:
+      contents: write
+      packages: read
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+      - name: Determine environment and image tags
+        id: env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "target_branch=main" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "image_tag=develop-${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "target_branch=develop" >> $GITHUB_OUTPUT
+          else
+            echo "environment=unknown" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+      - name: Update Docker app manifest
+        if: steps.env.outputs.environment != 'unknown'
+        run: |
+          # Update Docker app deployment image
+          if [[ -f "docker/k8s/app-deployment.yaml" ]]; then
+            sed -i "s|image: docker-app:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/docker:${{ steps.env.outputs.image_tag }}|g" docker/k8s/app-deployment.yaml
+            echo "Updated Docker app image to: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/docker:${{ steps.env.outputs.image_tag }}"
+          fi
+          
+      - name: Update K8s demo manifest
+        if: steps.env.outputs.environment != 'unknown'
+        run: |
+          # Update K8s demo deployment image
+          if [[ -f "k8s/k8s/deployment.yaml" ]]; then
+            sed -i "s|image: k8s-demo-app:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/k8s:${{ steps.env.outputs.image_tag }}|g" k8s/k8s/deployment.yaml
+            echo "Updated K8s demo image to: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/k8s:${{ steps.env.outputs.image_tag }}"
+          fi
+          
+      - name: Update Kustomize overlays
+        if: steps.env.outputs.environment != 'unknown'
+        run: |
+          # Update Kustomize overlay for the appropriate environment
+          if [[ "${{ steps.env.outputs.environment }}" == "staging" ]]; then
+            OVERLAY_PATH="argocd/overlays/staging"
+          elif [[ "${{ steps.env.outputs.environment }}" == "production" ]]; then
+            OVERLAY_PATH="argocd/overlays/production"
+          fi
+          
+          if [[ -f "$OVERLAY_PATH/kustomization.yaml" ]]; then
+            # Update image tag in kustomization.yaml
+            sed -i "s|newTag: .*|newTag: ${{ steps.env.outputs.image_tag }}|g" $OVERLAY_PATH/kustomization.yaml
+            echo "Updated $OVERLAY_PATH/kustomization.yaml with tag: ${{ steps.env.outputs.image_tag }}"
+          fi
+          
+      - name: Commit and push changes
+        run: |
+          # Check if there are any changes
+          if [[ -n $(git status --porcelain) ]]; then
+            git add .
+            git commit -m "chore: Update image tags for ${{ steps.env.outputs.environment }} deployment
+            
+            - Updated Docker app image to: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/docker:${{ steps.env.outputs.image_tag }}
+            - Updated K8s demo image to: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/k8s:${{ steps.env.outputs.image_tag }}
+            - Environment: ${{ steps.env.outputs.environment }}
+            - Branch: ${{ steps.env.outputs.target_branch }}
+            - Commit: ${{ github.sha }}"
+            
+            git push origin ${{ steps.env.outputs.target_branch }}
+            echo "✅ Pushed manifest updates to ${{ steps.env.outputs.target_branch }} branch"
+          else
+            echo "ℹ️  No changes to commit"
+          fi
+          
+      - name: Trigger ArgoCD sync (if ArgoCD CLI is available)
+        if: env.ARGOCD_SERVER != ''
+        run: |
+          # This is optional and requires ArgoCD CLI and credentials
+          echo "🔄 Triggering ArgoCD sync for ${{ steps.env.outputs.environment }} applications..."
+          
+          if [[ "${{ steps.env.outputs.environment }}" == "staging" ]]; then
+            # argocd app sync docker-app-staging k8s-demo-staging --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN
+            echo "Would sync staging applications"
+          elif [[ "${{ steps.env.outputs.environment }}" == "production" ]]; then
+            # argocd app sync docker-app-production k8s-demo-production --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN
+            echo "Would sync production applications"
+          fi
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          
+  notification:
+    name: Send GitOps Notifications
+    runs-on: ubuntu-latest
+    needs: update-manifests
+    if: always()
+    
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#gitops'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+          text: |
+            🚀 GitOps deployment triggered
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Environment: ${{ needs.update-manifests.outputs.environment }}
+            Status: ${{ needs.update-manifests.result }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

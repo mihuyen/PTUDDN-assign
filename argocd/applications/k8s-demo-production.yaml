@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: k8s-demo-production
+  namespace: argocd
+  labels:
+    app: k8s-demo
+    environment: production
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  
+  # Source configuration
+  source:
+    repoURL: https://github.com/mihuyen/PTUDDN-assign.git
+    targetRevision: main
+    path: k8s/k8s
+    
+  # Destination configuration
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: k8s-demo-production
+    
+  # Sync policy - Conservative for production
+  syncPolicy:
+    automated:
+      prune: false     # Manual pruning for production
+      selfHeal: false  # Manual sync for production
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+        
+  # Health and sync configuration
+  revisionHistoryLimit: 20
+  
+  # Ignore differences for certain fields
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+      jsonPointers:
+        - /spec/minReplicas
+        - /spec/maxReplicas
+    - group: ""
+      kind: Service
+      jsonPointers:
+        - /spec/clusterIP

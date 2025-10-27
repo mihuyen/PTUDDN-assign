@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: docker-app-staging
+  namespace: argocd
+  labels:
+    app: docker-app
+    environment: staging
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  
+  # Source configuration
+  source:
+    repoURL: https://github.com/mihuyen/PTUDDN-assign.git
+    targetRevision: develop  # Track develop branch for staging
+    path: docker/k8s
+    
+  # Destination configuration
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: docker-staging
+    
+  # Sync policy
+  syncPolicy:
+    automated:
+      prune: true      # Remove resources not in Git
+      selfHeal: true   # Auto-sync when drift detected
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true  # Auto-create namespace
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+        
+  # Health and sync configuration
+  revisionHistoryLimit: 10
+  
+  # Ignore differences for certain fields
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # Ignore HPA-managed replicas
+    - group: ""
+      kind: Service
+      jsonPointers:
+        - /spec/clusterIP  # Ignore auto-assigned cluster IPs

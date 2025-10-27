@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+  namespace: argocd
+  labels:
+    app: app-of-apps
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  
+  # Source configuration - Points to the applications directory
+  source:
+    repoURL: https://github.com/mihuyen/PTUDDN-assign.git
+    targetRevision: main
+    path: argocd/applications
+    
+  # Destination configuration
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+    
+  # Sync policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=false  # ArgoCD namespace should already exist
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+        
+  # Health and sync configuration
+  revisionHistoryLimit: 10
