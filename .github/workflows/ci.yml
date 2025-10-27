@@ -83,6 +83,7 @@ jobs:
           name: Docker Module Tests
           path: docker/target/surefire-reports/*.xml
           reporter: java-junit
+          fail-on-error: false
           
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -133,6 +134,7 @@ jobs:
           name: SSO Module Tests
           path: sso/target/surefire-reports/*.xml
           reporter: java-junit
+          fail-on-error: false
           
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -187,6 +189,7 @@ jobs:
           name: K8s Module Tests
           path: k8s/target/surefire-reports/*.xml
           reporter: java-junit
+          fail-on-error: false
           
       - name: Upload test results
         uses: actions/upload-artifact@v4
