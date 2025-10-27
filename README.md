@@ -7,7 +7,7 @@
 
 Dự án này thực hiện một hệ thống DevOps hoàn chỉnh với:
 
-- **Continuous Integration**: GitHub Actions tự động build, test, và đóng gói ứng dụng
+-** Continuous Integration**: GitHub Actions tự động build, test, và đóng gói ứng dụng
 - ** Continuous Deployment**: ArgoCD tự động deploy ứng dụng theo GitOps pattern
 - ** Kubernetes Orchestration**: Quản lý container trên Docker Desktop
 - ** Monitoring & Observability**: Prometheus + Grafana cho theo dõi hệ thống
@@ -29,19 +29,6 @@ Dự án này thực hiện một hệ thống DevOps hoàn chỉnh với:
 ✅ kubectl CLI tool
 ✅ Git và GitHub account
 ✅ Java 21+ và Maven 3.8+
-```
-
-**Kiểm tra cài đặt:**
-```bash
-# Kiểm tra Kubernetes
-kubectl cluster-info
-
-# Kiểm tra Docker
-docker --version
-
-# Kiểm tra Java & Maven
-java --version
-mvn --version
 ```
 
 ### 2. Clone repository
@@ -163,5 +150,6 @@ app-of-apps:
 6. 🔄 Auto Sync → Deploy to K8s
 7. 🏥 Health Check → Validate Deployment
 ```
+
 
 
