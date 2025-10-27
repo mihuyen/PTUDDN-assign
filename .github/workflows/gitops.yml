@@ -9,6 +9,10 @@ on:
       - completed
     branches: [ main, develop ]
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
