@@ -1,0 +1,53 @@
+# Labeler configuration for automatic PR labeling
+# Add labels based on file changes
+
+# Java changes
+java:
+  - "**/*.java"
+  - "pom.xml"
+  - "**/pom.xml"
+
+# Docker changes  
+docker:
+  - "Dockerfile*"
+  - "**/*.dockerfile"
+  - ".dockerignore"
+
+# Kubernetes changes
+kubernetes:
+  - "k8s/**"
+  - "**/*.yaml"
+  - "**/*.yml"
+
+# CI/CD changes
+cicd:
+  - ".github/**"
+
+# Documentation changes
+documentation:
+  - "**/*.md"
+  - "docs/**"
+
+# Scripts
+scripts:
+  - "scripts/**"
+  - "**/*.sh"
+  - "**/*.ps1"
+
+# Configuration
+config:
+  - "**/*.properties"
+  - "**/*.yml"
+  - "**/*.yaml"
+  - "**/*.json"
+
+# Tests
+tests:
+  - "**/test/**"
+  - "**/*Test.java"
+  - "**/*Tests.java"
+
+# Dependencies
+dependencies:
+  - "pom.xml"
+  - "**/pom.xml"

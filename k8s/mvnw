@@ -1,0 +1,11 @@
+#!/bin/bash
+# Maven wrapper script for Unix systems
+
+# Check if Maven is available
+if command -v mvn &> /dev/null; then
+    echo "Using Maven from PATH: $(which mvn)"
+    mvn "$@"
+else
+    echo "Maven not found. Please install Maven or use the Maven wrapper."
+    exit 1
+fi

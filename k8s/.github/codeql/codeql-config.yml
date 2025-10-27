@@ -1,0 +1,20 @@
+# CodeQL configuration for security analysis
+name: "CodeQL"
+
+disable-default-queries: false
+
+queries:
+  - name: security-and-quality
+    uses: security-and-quality
+
+paths-ignore:
+  - "target/**"
+  - "**/*.min.js"
+  - "**/node_modules/**"
+
+paths:
+  - "src/**"
+
+# Languages to analyze
+languages:
+  - java

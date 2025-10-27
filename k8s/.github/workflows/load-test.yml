@@ -1,0 +1,99 @@
+name: Load Testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      duration:
+        description: 'Test duration (seconds)'
+        required: true
+        default: '300'
+        type: string
+      users:
+        description: 'Number of concurrent users'
+        required: true
+        default: '50'
+        type: string
+
+jobs:
+  load-test:
+    name: Run Load Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Java for JMeter
+      uses: actions/setup-java@v4
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        
+    - name: Download and setup JMeter
+      run: |
+        wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.2.tgz
+        tar -xzf apache-jmeter-5.6.2.tgz
+        sudo mv apache-jmeter-5.6.2 /opt/jmeter
+        sudo ln -s /opt/jmeter/bin/jmeter /usr/local/bin/jmeter
+        
+    - name: Configure test environment
+      run: |
+        if [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+          echo "TARGET_HOST=staging.example.com" >> $GITHUB_ENV
+        else
+          echo "TARGET_HOST=production.example.com" >> $GITHUB_ENV
+        fi
+        
+    - name: Run load tests
+      run: |
+        jmeter -n -t jmeter/load-test.jmx \
+          -Jusers=${{ github.event.inputs.users }} \
+          -Jduration=${{ github.event.inputs.duration }} \
+          -Jhost=${{ env.TARGET_HOST }} \
+          -l results.jtl \
+          -e -o reports/
+          
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: load-test-results
+        path: |
+          results.jtl
+          reports/
+          
+    - name: Parse results and create summary
+      run: |
+        # Extract key metrics from JTL file
+        echo "## Load Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Duration**: ${{ github.event.inputs.duration }} seconds" >> $GITHUB_STEP_SUMMARY
+        echo "- **Concurrent Users**: ${{ github.event.inputs.users }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Calculate basic statistics
+        TOTAL_REQUESTS=$(tail -n +2 results.jtl | wc -l)
+        FAILED_REQUESTS=$(tail -n +2 results.jtl | awk -F',' '$8=="false"' | wc -l)
+        SUCCESS_RATE=$(echo "scale=2; ($TOTAL_REQUESTS - $FAILED_REQUESTS) * 100 / $TOTAL_REQUESTS" | bc)
+        AVG_RESPONSE_TIME=$(tail -n +2 results.jtl | awk -F',' '{sum+=$2; count++} END {print sum/count}')
+        
+        echo "### Metrics" >> $GITHUB_STEP_SUMMARY
+        echo "- **Total Requests**: $TOTAL_REQUESTS" >> $GITHUB_STEP_SUMMARY
+        echo "- **Success Rate**: ${SUCCESS_RATE}%" >> $GITHUB_STEP_SUMMARY
+        echo "- **Average Response Time**: ${AVG_RESPONSE_TIME}ms" >> $GITHUB_STEP_SUMMARY
+        
+        # Fail if success rate is below threshold
+        if (( $(echo "$SUCCESS_RATE < 95" | bc -l) )); then
+          echo "❌ Load test failed: Success rate below 95%" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "✅ Load test passed!" >> $GITHUB_STEP_SUMMARY
+        fi
