@@ -24,8 +24,8 @@ spec:
     spec:
       containers:
       - name: k8s-demo-app
-        image: k8s-demo-app:1.0.0  # Thay bằng image của bạn
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/mihuyen/ptuddn-assign/k8s:latest  # GitHub Container Registry
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
           name: http
