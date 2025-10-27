@@ -1,29 +1,13 @@
-# Dockerfile để build image cho ứng dụng
-FROM eclipse-temurin:17-jdk-alpine AS builder
+# Simple Dockerfile using pre-built JAR  
+FROM eclipse-temurin:22-jre-alpine
 
 WORKDIR /app
 
-# Copy Maven wrapper và pom.xml
-COPY mvnw .
-COPY .mvn .mvn
-COPY pom.xml .
+# Install wget for health check
+RUN apk add --no-cache wget
 
-# Download dependencies
-RUN ./mvnw dependency:go-offline -B || true
-
-# Copy source code
-COPY src src
-
-# Build application
-RUN ./mvnw clean package -DskipTests
-
-# Production stage
-FROM eclipse-temurin:17-jre-alpine
-
-WORKDIR /app
-
-# Copy JAR từ builder stage
-COPY --from=builder /app/target/*.jar app.jar
+# Copy pre-built JAR file
+COPY target/k8s-demo-app-1.0.0.jar app.jar
 
 # Expose port
 EXPOSE 8080
