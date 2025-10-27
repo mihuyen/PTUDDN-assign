@@ -19,5 +19,5 @@ spec:
     protocol: TCP
     port: 80
     targetPort: 8080
-    nodePort: 30080  # Chỉ dùng khi type là NodePort
+    nodePort: 30081  # Chỉ dùng khi type là NodePort
   sessionAffinity: None
