@@ -144,6 +144,10 @@ jobs:
           key: ${{ runner.os }}-m2-k8s-${{ hashFiles('k8s/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2-k8s
           
+      - name: Make mvnw executable
+        working-directory: ./k8s
+        run: chmod +x ./mvnw
+          
       - name: Run tests for K8s module
         working-directory: ./k8s
         run: ./mvnw clean test
@@ -233,6 +237,10 @@ jobs:
           java-version: '22'
           distribution: 'temurin'
           cache: maven
+          
+      - name: Make mvnw executable
+        working-directory: ./k8s
+        run: chmod +x ./mvnw
           
       - name: Build K8s module
         working-directory: ./k8s
