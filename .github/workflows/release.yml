@@ -1,0 +1,328 @@
+name: Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  validate-release:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Validate tag format
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG=${{ github.ref_name }}
+          else
+            TAG=${{ github.event.inputs.version }}
+          fi
+          
+          if [[ ! $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag format: $TAG. Expected format: v1.0.0"
+            exit 1
+          fi
+          
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+  test-all:
+    name: Test All Modules
+    runs-on: ubuntu-latest
+    needs: validate-release
+    
+    strategy:
+      matrix:
+        module: [docker, sso, k8s]
+        include:
+          - module: docker
+            java-version: '21'
+            build-command: 'mvn clean test'
+          - module: sso
+            java-version: '21'
+            build-command: 'mvn clean test'
+          - module: k8s
+            java-version: '22'
+            build-command: './mvnw clean test'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'temurin'
+          cache: maven
+          
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ matrix.module }}-${{ hashFiles(format('{0}/pom.xml', matrix.module)) }}
+          restore-keys: ${{ runner.os }}-m2-${{ matrix.module }}
+          
+      - name: Run tests for ${{ matrix.module }}
+        working-directory: ./${{ matrix.module }}
+        run: ${{ matrix.build-command }}
+
+  build-all:
+    name: Build All Modules
+    runs-on: ubuntu-latest
+    needs: test-all
+    
+    strategy:
+      matrix:
+        module: [docker, sso, k8s]
+        include:
+          - module: docker
+            java-version: '21'
+            build-command: 'mvn clean package -DskipTests'
+          - module: sso
+            java-version: '21'
+            build-command: 'mvn clean package -DskipTests'
+          - module: k8s
+            java-version: '22'
+            build-command: './mvnw clean package -DskipTests'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'temurin'
+          cache: maven
+          
+      - name: Build ${{ matrix.module }} module
+        working-directory: ./${{ matrix.module }}
+        run: ${{ matrix.build-command }}
+        
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.module }}-release-jar
+          path: ${{ matrix.module }}/target/*.jar
+
+  docker-release:
+    name: Build Release Docker Images
+    runs-on: ubuntu-latest
+    needs: build-all
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    strategy:
+      matrix:
+        module: [docker, k8s]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract release version
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=${{ github.ref_name }}
+          else
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.module }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ steps.version.outputs.tag }}
+            type=raw,value=latest
+            
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.module }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  security-scan-release:
+    name: Security Scan Release Images
+    runs-on: ubuntu-latest
+    needs: docker-release
+    
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+      
+    strategy:
+      matrix:
+        module: [docker, k8s]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Extract release version
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=${{ github.ref_name }}
+          else
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+          
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.module }}:${{ steps.version.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.module }}-release.sarif'
+          
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.module }}-release.sarif'
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [docker-release, security-scan-release]
+    
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Extract release version
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=${{ github.ref_name }}
+          else
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Generate changelog
+        id: changelog
+        run: |
+          if git tag --list | grep -q "v"; then
+            PREVIOUS_TAG=$(git tag --list "v*" | sort -V | tail -n 2 | head -n 1)
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              echo "Generating changelog since $PREVIOUS_TAG"
+              CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ steps.version.outputs.tag }} || echo "- Initial release")
+            else
+              CHANGELOG="- Initial release"
+            fi
+          else
+            CHANGELOG="- Initial release"
+          fi
+          
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## Changes in this Release
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## Docker Images
+            
+            - `ghcr.io/${{ github.repository }}/docker:${{ steps.version.outputs.version }}`
+            - `ghcr.io/${{ github.repository }}/k8s:${{ steps.version.outputs.version }}`
+            
+            ## Artifacts
+            
+            - Docker module JAR
+            - SSO module JAR  
+            - K8s module JAR
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
+
+  notification-release:
+    name: Send Release Notifications
+    runs-on: ubuntu-latest
+    needs: create-release
+    if: always()
+    
+    steps:
+      - name: Extract release version
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=${{ github.ref_name }}
+          else
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#releases'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+          text: |
+            🚀 New release: ${{ steps.version.outputs.tag }}
+            Repository: ${{ github.repository }}
+            Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -1,0 +1,416 @@
+name: Multi-Module CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, test-ci-trigger ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      docker-changed: ${{ steps.changes.outputs.docker }}
+      sso-changed: ${{ steps.changes.outputs.sso }}
+      k8s-changed: ${{ steps.changes.outputs.k8s }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Detect changes
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            docker:
+              - 'docker/**'
+            sso:
+              - 'sso/**'
+            k8s:
+              - 'k8s/**'
+
+  test-docker:
+    name: Test Docker Module
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docker-changed == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+          
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-docker-${{ hashFiles('docker/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-docker
+          
+      - name: Run tests for Docker module
+        working-directory: ./docker
+        run: mvn clean test
+        
+      - name: Generate test report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Docker Module Tests
+          path: docker/target/surefire-reports/*.xml
+          reporter: java-junit
+          
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: docker-test-results
+          path: docker/target/surefire-reports/
+
+  test-sso:
+    name: Test SSO Module
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sso-changed == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+          
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-sso-${{ hashFiles('sso/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-sso
+          
+      - name: Run tests for SSO module
+        working-directory: ./sso
+        run: mvn clean test
+        
+      - name: Generate test report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: SSO Module Tests
+          path: sso/target/surefire-reports/*.xml
+          reporter: java-junit
+          
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: sso-test-results
+          path: sso/target/surefire-reports/
+
+  test-k8s:
+    name: Test K8s Module
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.k8s-changed == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK 22
+        uses: actions/setup-java@v4
+        with:
+          java-version: '22'
+          distribution: 'temurin'
+          cache: maven
+          
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-k8s-${{ hashFiles('k8s/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-k8s
+          
+      - name: Run tests for K8s module
+        working-directory: ./k8s
+        run: ./mvnw clean test
+        
+      - name: Generate test report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: K8s Module Tests
+          path: k8s/target/surefire-reports/*.xml
+          reporter: java-junit
+          
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: k8s-test-results
+          path: k8s/target/surefire-reports/
+
+  build-docker:
+    name: Build Docker Module
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-docker]
+    if: needs.detect-changes.outputs.docker-changed == 'true' && (success() || failure())
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+          
+      - name: Build Docker module
+        working-directory: ./docker
+        run: mvn clean package -DskipTests
+        
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-jar-artifact
+          path: docker/target/*.jar
+
+  build-sso:
+    name: Build SSO Module
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-sso]
+    if: needs.detect-changes.outputs.sso-changed == 'true' && (success() || failure())
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+          
+      - name: Build SSO module
+        working-directory: ./sso
+        run: mvn clean package -DskipTests
+        
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: sso-jar-artifact
+          path: sso/target/*.jar
+
+  build-k8s:
+    name: Build K8s Module
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-k8s]
+    if: needs.detect-changes.outputs.k8s-changed == 'true' && (success() || failure())
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK 22
+        uses: actions/setup-java@v4
+        with:
+          java-version: '22'
+          distribution: 'temurin'
+          cache: maven
+          
+      - name: Build K8s module
+        working-directory: ./k8s
+        run: ./mvnw clean package -DskipTests
+        
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: k8s-jar-artifact
+          path: k8s/target/*.jar
+
+  docker-docker:
+    name: Build Docker Image for Docker Module
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-docker]
+    if: needs.detect-changes.outputs.docker-changed == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/test-ci-trigger')
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/docker
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docker-k8s:
+    name: Build Docker Image for K8s Module
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-k8s]
+    if: needs.detect-changes.outputs.k8s-changed == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/test-ci-trigger')
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/k8s
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./k8s
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [docker-docker, docker-k8s]
+    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/test-ci-trigger')
+    
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+      
+    strategy:
+      matrix:
+        include:
+          - module: docker
+            needs: docker-docker
+          - module: k8s
+            needs: docker-k8s
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.module }}:${{ github.ref_name }}-${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.module }}.sarif'
+          
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.module }}.sarif'
+
+  notification:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [test-docker, test-sso, test-k8s, build-docker, build-sso, build-k8s, docker-docker, docker-k8s, security-scan]
+    if: always()
+    
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+          elif [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "status=cancelled" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ steps.status.outputs.status }}
+          channel: '#ci-cd'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Create deployment status
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: context.payload.deployment?.id || 0,
+              state: '${{ steps.status.outputs.status }}' === 'success' ? 'success' : 'failure',
+              description: 'Multi-module CI/CD pipeline completed',
+              environment: github.ref === 'refs/heads/main' ? 'production' : 'staging'
+            });
