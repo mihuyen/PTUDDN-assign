@@ -14,7 +14,7 @@ spec:
   # Source configuration
   source:
     repoURL: https://github.com/mihuyen/PTUDDN-assign.git
-    targetRevision: main
+    targetRevision: test-ci-trigger
     path: k8s/k8s
     
   # Destination configuration

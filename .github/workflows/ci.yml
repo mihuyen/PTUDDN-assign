@@ -69,9 +69,16 @@ jobs:
         working-directory: ./docker
         run: mvn clean test
         
+      - name: List test report files (debug)
+        if: always()
+        run: |
+          echo "Checking for test reports in docker/target/surefire-reports/"
+          ls -la docker/target/surefire-reports/ || echo "No surefire-reports directory found"
+          find docker/target -name "*.xml" -type f || echo "No XML files found in target"
+        
       - name: Generate test report
         uses: dorny/test-reporter@v1
-        if: success() || failure()
+        if: always() && hashFiles('docker/target/surefire-reports/*.xml') != ''
         with:
           name: Docker Module Tests
           path: docker/target/surefire-reports/*.xml
@@ -112,9 +119,16 @@ jobs:
         working-directory: ./sso
         run: mvn clean test
         
+      - name: List test report files (debug)
+        if: always()
+        run: |
+          echo "Checking for test reports in sso/target/surefire-reports/"
+          ls -la sso/target/surefire-reports/ || echo "No surefire-reports directory found"
+          find sso/target -name "*.xml" -type f || echo "No XML files found in target"
+        
       - name: Generate test report
         uses: dorny/test-reporter@v1
-        if: success() || failure()
+        if: always() && hashFiles('sso/target/surefire-reports/*.xml') != ''
         with:
           name: SSO Module Tests
           path: sso/target/surefire-reports/*.xml
@@ -159,9 +173,16 @@ jobs:
         working-directory: ./k8s
         run: ./mvnw clean test
         
+      - name: List test report files (debug)
+        if: always()
+        run: |
+          echo "Checking for test reports in k8s/target/surefire-reports/"
+          ls -la k8s/target/surefire-reports/ || echo "No surefire-reports directory found"
+          find k8s/target -name "*.xml" -type f || echo "No XML files found in target"
+        
       - name: Generate test report
         uses: dorny/test-reporter@v1
-        if: success() || failure()
+        if: always() && hashFiles('k8s/target/surefire-reports/*.xml') != ''
         with:
           name: K8s Module Tests
           path: k8s/target/surefire-reports/*.xml
