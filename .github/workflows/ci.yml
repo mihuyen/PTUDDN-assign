@@ -433,7 +433,7 @@ jobs:
           fi
         
       - name: Upload Docker security scan results
-        if: needs.detect-changes.outputs.docker-changed == 'true' && needs.docker-docker.result == 'success'
+        if: needs.detect-changes.outputs.docker-changed == 'true' && needs.docker-docker.result == 'success' && hashFiles('trivy-results-docker.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results-docker.sarif'
@@ -462,7 +462,7 @@ jobs:
           fi
         
       - name: Upload K8s security scan results
-        if: needs.detect-changes.outputs.k8s-changed == 'true' && needs.docker-k8s.result == 'success'
+        if: needs.detect-changes.outputs.k8s-changed == 'true' && needs.docker-k8s.result == 'success' && hashFiles('trivy-results-k8s.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results-k8s.sarif'
